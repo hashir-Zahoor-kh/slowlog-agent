@@ -183,7 +183,7 @@ def test_doctor_all_checks_pass_exits_0() -> None:
     with (
         patch("slowlog_agent.cli.load_settings") as load_settings,
         patch("slowlog_agent.doctor.fetcher.build_client") as build_client,
-        patch("slowlog_agent.doctor.shutil.which", return_value="/usr/local/bin/claude"),
+        patch("slowlog_agent.backends.claude.shutil.which", return_value="/usr/local/bin/claude"),
     ):
         load_settings.return_value = _settings()
         build_client.return_value = MagicMock()
@@ -213,7 +213,7 @@ def test_doctor_aws_failure_exits_1() -> None:
     with (
         patch("slowlog_agent.cli.load_settings") as load_settings,
         patch("slowlog_agent.doctor.fetcher.build_client") as build_client,
-        patch("slowlog_agent.doctor.shutil.which", return_value="/usr/local/bin/claude"),
+        patch("slowlog_agent.backends.claude.shutil.which", return_value="/usr/local/bin/claude"),
     ):
         load_settings.return_value = _settings()
         client = MagicMock()
@@ -233,7 +233,7 @@ def test_doctor_claude_missing_exits_1() -> None:
     with (
         patch("slowlog_agent.cli.load_settings") as load_settings,
         patch("slowlog_agent.doctor.fetcher.build_client") as build_client,
-        patch("slowlog_agent.doctor.shutil.which", return_value=None),
+        patch("slowlog_agent.backends.claude.shutil.which", return_value=None),
     ):
         load_settings.return_value = _settings()
         build_client.return_value = MagicMock()
@@ -249,7 +249,7 @@ def test_doctor_db_dsn_ok() -> None:
     with (
         patch("slowlog_agent.cli.load_settings") as load_settings,
         patch("slowlog_agent.doctor.fetcher.build_client") as build_client,
-        patch("slowlog_agent.doctor.shutil.which", return_value="/usr/local/bin/claude"),
+        patch("slowlog_agent.backends.claude.shutil.which", return_value="/usr/local/bin/claude"),
         patch("slowlog_agent.doctor.db.check_db_dsn", return_value=(True, "connected")),
     ):
         load_settings.return_value = _settings(db_dsn="mysql://u:p@localhost/db")
@@ -266,7 +266,7 @@ def test_doctor_db_dsn_failure_exits_1() -> None:
     with (
         patch("slowlog_agent.cli.load_settings") as load_settings,
         patch("slowlog_agent.doctor.fetcher.build_client") as build_client,
-        patch("slowlog_agent.doctor.shutil.which", return_value="/usr/local/bin/claude"),
+        patch("slowlog_agent.backends.claude.shutil.which", return_value="/usr/local/bin/claude"),
         patch("slowlog_agent.doctor.db.check_db_dsn", return_value=(False, "connection refused")),
     ):
         load_settings.return_value = _settings(db_dsn="mysql://u:p@localhost/db")

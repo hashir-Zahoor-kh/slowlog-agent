@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import shutil
-
 import click
 from botocore.exceptions import ClientError, NoCredentialsError, ProfileNotFound
 
 from slowlog_agent import db, fetcher
+from slowlog_agent.backends import get_backend
 from slowlog_agent.config import Settings
 
 
@@ -41,16 +40,13 @@ def run_doctor_checks(settings: Settings) -> bool:
             "logs:DescribeLogGroups permission on this log group.",
         )
 
-    if shutil.which("claude"):
-        print_check("OK", "claude", "binary found on PATH")
+    backend = get_backend(settings.agent_backend)
+    result = backend.check_available()
+    if result.ok:
+        print_check("OK", backend.name, result.detail)
     else:
         all_ok = False
-        print_check(
-            "FAIL",
-            "claude",
-            "binary not found on PATH",
-            "Install Claude Code: https://docs.claude.com/claude-code",
-        )
+        print_check("FAIL", backend.name, result.detail, result.remediation)
 
     if settings.db_dsn:
         ok, message = db.check_db_dsn(settings.db_dsn)

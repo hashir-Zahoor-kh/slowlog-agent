@@ -16,3 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `slowlog doctor`, `slowlog init`), Terraform for a scoped read-only IAM
   user, and GitHub Actions CI (lint, typecheck, coverage-gated tests,
   terraform fmt/validate).
+- Pluggable agent backend (`agent_backend = "claude" | "copilot"`):
+  `analyzer.py`'s prompt rendering, schema validation, and retry-once
+  policy are now backend-agnostic, with `backends/claude.py` (native
+  `--json-schema` enforcement) and `backends/copilot.py` (schema inlined
+  in the prompt, defensive markdown-fence stripping) behind a shared
+  `AgentBackend` protocol. `slowlog init` detects installed binaries and
+  offers a choice when both are present; `slowlog doctor` validates
+  whichever backend is configured.

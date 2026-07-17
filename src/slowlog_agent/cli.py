@@ -11,6 +11,7 @@ from slowlog_agent import __version__, analyzer, fetcher, init_wizard, parser
 from slowlog_agent import digest as digest_mod
 from slowlog_agent import doctor as doctor_mod
 from slowlog_agent import report as report_mod
+from slowlog_agent.backends import get_backend
 from slowlog_agent.config import load_settings
 from slowlog_agent.errors import ConfigError, SlowlogError
 from slowlog_agent.schemas import AnalysisReport
@@ -67,11 +68,13 @@ def analyze(hours: int | None, top_n: int | None, no_db: bool, json_only: bool) 
         )
 
         effective_db_dsn = None if no_db else settings.db_dsn
+        backend = get_backend(settings.agent_backend)
         analysis = analyzer.analyze(
             digest,
             db_dsn=effective_db_dsn,
             timeout=settings.agent_timeout_seconds,
             output_dir=settings.output_dir,
+            backend=backend,
         )
 
         settings.output_dir.mkdir(parents=True, exist_ok=True)
@@ -108,6 +111,9 @@ def doctor() -> None:
         doctor_mod.print_check("OK", "configuration", "settings loaded successfully")
         all_ok = doctor_mod.run_doctor_checks(settings)
         sys.exit(EXIT_OK if all_ok else EXIT_UNEXPECTED_ERROR)
+    except SlowlogError as exc:
+        _print_error(exc)
+        sys.exit(exc.exit_code)
     except Exception as exc:  # noqa: BLE001 - last-resort safety net, never a bare traceback
         _handle_unexpected(exc)
 

@@ -125,6 +125,7 @@ def test_write_config_produces_parseable_toml(_isolated_home: Path) -> None:
         aws_region="us-east-1",
         aws_profile="readonly",
         db_dsn="mysql://u:p@host/db",
+        agent_backend="claude",
     )
 
     data = tomllib.loads((_isolated_home / "slowlog.toml").read_text())
@@ -132,6 +133,7 @@ def test_write_config_produces_parseable_toml(_isolated_home: Path) -> None:
         "log_group_name": "/aws/rds/slow",
         "aws_region": "us-east-1",
         "aws_profile": "readonly",
+        "agent_backend": "claude",
         "db_dsn": "mysql://u:p@host/db",
     }
 
@@ -140,11 +142,30 @@ def test_write_config_omits_db_dsn_when_none(_isolated_home: Path) -> None:
     import tomllib
 
     init_wizard._write_config(
-        log_group_name="/aws/rds/slow", aws_region="us-east-1", aws_profile="readonly", db_dsn=None
+        log_group_name="/aws/rds/slow",
+        aws_region="us-east-1",
+        aws_profile="readonly",
+        db_dsn=None,
+        agent_backend="claude",
     )
 
     data = tomllib.loads((_isolated_home / "slowlog.toml").read_text())
     assert "db_dsn" not in data
+
+
+def test_write_config_writes_selected_agent_backend(_isolated_home: Path) -> None:
+    import tomllib
+
+    init_wizard._write_config(
+        log_group_name="/aws/rds/slow",
+        aws_region="us-east-1",
+        aws_profile="readonly",
+        db_dsn=None,
+        agent_backend="copilot",
+    )
+
+    data = tomllib.loads((_isolated_home / "slowlog.toml").read_text())
+    assert data["agent_backend"] == "copilot"
 
 
 def test_write_config_escapes_quotes_and_backslashes(_isolated_home: Path) -> None:
@@ -155,6 +176,7 @@ def test_write_config_escapes_quotes_and_backslashes(_isolated_home: Path) -> No
         aws_region="us-east-1",
         aws_profile="readonly",
         db_dsn=None,
+        agent_backend="claude",
     )
 
     data = tomllib.loads((_isolated_home / "slowlog.toml").read_text())
@@ -234,17 +256,47 @@ def test_maybe_configure_db_dsn_grants_check_error_still_returns_dsn() -> None:
         assert init_wizard._maybe_configure_db_dsn() == "mysql://x@h/db"
 
 
-# --- _check_claude_binary ----------------------------------------------------------
+# --- _pick_agent_backend ------------------------------------------------------------
 
 
-def test_check_claude_binary_found() -> None:
-    with patch("slowlog_agent.init_wizard.shutil.which", return_value="/usr/bin/claude"):
-        init_wizard._check_claude_binary()  # should not raise
+def test_pick_agent_backend_only_claude_present() -> None:
+    with patch(
+        "slowlog_agent.init_wizard.shutil.which",
+        side_effect=lambda b: "/x" if b == "claude" else None,
+    ):
+        assert init_wizard._pick_agent_backend() == "claude"
 
 
-def test_check_claude_binary_missing() -> None:
+def test_pick_agent_backend_only_copilot_present() -> None:
+    with patch(
+        "slowlog_agent.init_wizard.shutil.which",
+        side_effect=lambda b: "/x" if b == "copilot" else None,
+    ):
+        assert init_wizard._pick_agent_backend() == "copilot"
+
+
+def test_pick_agent_backend_neither_present_defaults_to_claude() -> None:
     with patch("slowlog_agent.init_wizard.shutil.which", return_value=None):
-        init_wizard._check_claude_binary()  # should not raise
+        assert init_wizard._pick_agent_backend() == "claude"
+
+
+def test_pick_agent_backend_both_present_asks_and_respects_choice() -> None:
+    with (
+        patch("slowlog_agent.init_wizard.shutil.which", return_value="/x"),
+        patch(
+            "slowlog_agent.init_wizard.questionary.select", return_value=_ask("copilot")
+        ) as select,
+    ):
+        assert init_wizard._pick_agent_backend() == "copilot"
+        select.assert_called_once()
+
+
+def test_pick_agent_backend_both_present_defaults_claude_on_other_answer() -> None:
+    with (
+        patch("slowlog_agent.init_wizard.shutil.which", return_value="/x"),
+        patch("slowlog_agent.init_wizard.questionary.select", return_value=_ask("claude")),
+    ):
+        assert init_wizard._pick_agent_backend() == "claude"
 
 
 # --- _pick_log_group -----------------------------------------------------------------
@@ -331,7 +383,7 @@ def test_run_init_end_to_end_success(_isolated_home: Path) -> None:
         patch("slowlog_agent.init_wizard._pick_region", return_value="us-east-1"),
         patch("slowlog_agent.init_wizard._pick_log_group", return_value="/aws/rds/slow"),
         patch("slowlog_agent.init_wizard._maybe_configure_db_dsn", return_value=None),
-        patch("slowlog_agent.init_wizard._check_claude_binary"),
+        patch("slowlog_agent.init_wizard._pick_agent_backend", return_value="claude"),
         patch("slowlog_agent.doctor.run_doctor_checks", return_value=True),
     ):
         exit_code = init_wizard.run_init()
@@ -346,7 +398,7 @@ def test_run_init_end_to_end_doctor_fails(_isolated_home: Path) -> None:
         patch("slowlog_agent.init_wizard._pick_region", return_value="us-east-1"),
         patch("slowlog_agent.init_wizard._pick_log_group", return_value="/aws/rds/slow"),
         patch("slowlog_agent.init_wizard._maybe_configure_db_dsn", return_value=None),
-        patch("slowlog_agent.init_wizard._check_claude_binary"),
+        patch("slowlog_agent.init_wizard._pick_agent_backend", return_value="claude"),
         patch("slowlog_agent.doctor.run_doctor_checks", return_value=False),
     ):
         exit_code = init_wizard.run_init()
