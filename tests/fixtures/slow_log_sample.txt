@@ -1,0 +1,42 @@
+SELECT this_is_a_dangling_fragment_with_no_header;
+# Time: 2026-07-15T04:12:33.001Z
+# User@Host: app[app] @  [10.0.1.5]
+# Query_time: 12.4  Lock_time: 0.001  Rows_sent: 3  Rows_examined: 4400312
+SET timestamp=1752552753;
+SELECT * FROM orders WHERE customer_email LIKE '%gmail%';
+# Time: 2026-07-15T04:13:01.500Z
+# User@Host: app[app] @  [10.0.1.5]
+# Query_time: 8.7  Rows_sent: 1  Rows_examined: 900123
+SET timestamp=1752552781;
+SELECT * FROM orders WHERE customer_email LIKE '%gmail%';
+# Time: 2026-07-15T04:13:45.200Z
+# User@Host: app[app] @  [10.0.1.6]
+# Query_time: 5.1  Lock_time: 0.003  Rows_examined: 120000
+SET timestamp=1752552825;
+SELECT * FROM orders WHERE status = 'pending';
+# Time: 2026-07-15T04:14:02.000Z
+# User@Host: reporting[reporting] @  [10.0.1.9]
+# Query_time: 20.9  Lock_time: 0.010  Rows_sent: 0  Rows_examined: 8000000
+use analytics_db;
+SELECT * FROM orders WHERE status = 'pending';
+# Time: 2026-07-15T04:15:10.000Z
+# User@Host: app[app] @  [10.0.1.7]
+# Query_time: 3.2  Lock_time: 0.002  Rows_sent: 1  Rows_examined: 500
+SET timestamp=1752552910;
+SELECT o.id, o.total,
+       c.name
+FROM orders o
+JOIN customers c ON c.id = o.customer_id
+WHERE o.created_at > '2026-07-01';
+# Time: 2026-07-15T04:16:00.000Z
+# User@Host: app[app] @  [10.0.1.5]
+# administrator command: Quit;
+# Time: 2026-07-15T04:16:45.000Z
+# User@Host: app[app] @  [10.0.1.5]
+# Query_time: 1.5
+SET timestamp=1752553005;
+# Time: 2026-07-15T04:17:30.000Z
+# User@Host: app[app] @  [10.0.1.5]
+# Query_time: 15.0  Lock_time: 0.001  Rows_sent: 2  Rows_examined: 2200000
+SET timestamp=1752553050;
+SELECT * FROM orders WHERE customer_email LIKE '%gmail%';
