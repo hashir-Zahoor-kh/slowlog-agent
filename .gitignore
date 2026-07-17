@@ -17,5 +17,8 @@ slowlog.toml
 *.tfstate
 *.tfstate.*
 .terraform.lock.hcl
+terraform/terraform.tfvars
 .python-version
 .DS_Store
+.claude/scheduled_tasks.lock
+.claude/settings.local.json

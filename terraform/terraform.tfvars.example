@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars (gitignored) and fill in your values, or pass
+# these as -var flags / TF_VAR_ environment variables.
+
+aws_region     = "us-east-1"
+log_group_name = "/aws/rds/slowquery/mysql-slow-query-log" # must already exist
+# iam_user_name = "slowlog-agent" # optional, defaults shown
