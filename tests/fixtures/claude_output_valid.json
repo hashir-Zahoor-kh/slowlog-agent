@@ -1,0 +1,20 @@
+{
+  "type": "result",
+  "subtype": "success",
+  "structured_output": {
+    "findings": [
+      {
+        "fingerprint": "select * from orders where customer_email = ?",
+        "severity": "critical",
+        "problem": "Full table scan on orders.customer_email for a high-frequency pattern.",
+        "evidence": "EXPLAIN shows type=ALL, key=NULL, rows=4400312 for this pattern's example query.",
+        "recommendation": "Add a secondary index on orders(customer_email).",
+        "suggested_ddl": "CREATE INDEX idx_orders_customer_email ON orders (customer_email);",
+        "estimated_impact": "Rows examined should drop from ~4.4M to a handful per query, cutting p95 latency by >90%."
+      }
+    ],
+    "summary": "One critical full-table-scan pattern accounts for most of the slow-log time in this window; adding a single index resolves it.",
+    "analyzed_patterns": 1,
+    "db_verified": true
+  }
+}
