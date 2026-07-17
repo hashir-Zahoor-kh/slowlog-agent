@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
 
-from slowlog_agent.cli import _check_db_dsn, main
+from slowlog_agent.cli import main
 from slowlog_agent.config import Settings
 from slowlog_agent.errors import AgentError, ConfigError, FetchError
 from slowlog_agent.schemas import AnalysisReport, Finding
@@ -182,8 +182,8 @@ def test_doctor_all_checks_pass_exits_0() -> None:
     runner = CliRunner()
     with (
         patch("slowlog_agent.cli.load_settings") as load_settings,
-        patch("slowlog_agent.cli.fetcher.build_client") as build_client,
-        patch("slowlog_agent.cli.shutil.which", return_value="/usr/local/bin/claude"),
+        patch("slowlog_agent.doctor.fetcher.build_client") as build_client,
+        patch("slowlog_agent.doctor.shutil.which", return_value="/usr/local/bin/claude"),
     ):
         load_settings.return_value = _settings()
         build_client.return_value = MagicMock()
@@ -212,8 +212,8 @@ def test_doctor_aws_failure_exits_1() -> None:
     runner = CliRunner()
     with (
         patch("slowlog_agent.cli.load_settings") as load_settings,
-        patch("slowlog_agent.cli.fetcher.build_client") as build_client,
-        patch("slowlog_agent.cli.shutil.which", return_value="/usr/local/bin/claude"),
+        patch("slowlog_agent.doctor.fetcher.build_client") as build_client,
+        patch("slowlog_agent.doctor.shutil.which", return_value="/usr/local/bin/claude"),
     ):
         load_settings.return_value = _settings()
         client = MagicMock()
@@ -232,8 +232,8 @@ def test_doctor_claude_missing_exits_1() -> None:
     runner = CliRunner()
     with (
         patch("slowlog_agent.cli.load_settings") as load_settings,
-        patch("slowlog_agent.cli.fetcher.build_client") as build_client,
-        patch("slowlog_agent.cli.shutil.which", return_value=None),
+        patch("slowlog_agent.doctor.fetcher.build_client") as build_client,
+        patch("slowlog_agent.doctor.shutil.which", return_value=None),
     ):
         load_settings.return_value = _settings()
         build_client.return_value = MagicMock()
@@ -248,9 +248,9 @@ def test_doctor_db_dsn_ok() -> None:
     runner = CliRunner()
     with (
         patch("slowlog_agent.cli.load_settings") as load_settings,
-        patch("slowlog_agent.cli.fetcher.build_client") as build_client,
-        patch("slowlog_agent.cli.shutil.which", return_value="/usr/local/bin/claude"),
-        patch("slowlog_agent.cli._check_db_dsn", return_value=(True, "connected")),
+        patch("slowlog_agent.doctor.fetcher.build_client") as build_client,
+        patch("slowlog_agent.doctor.shutil.which", return_value="/usr/local/bin/claude"),
+        patch("slowlog_agent.doctor.db.check_db_dsn", return_value=(True, "connected")),
     ):
         load_settings.return_value = _settings(db_dsn="mysql://u:p@localhost/db")
         build_client.return_value = MagicMock()
@@ -265,9 +265,9 @@ def test_doctor_db_dsn_failure_exits_1() -> None:
     runner = CliRunner()
     with (
         patch("slowlog_agent.cli.load_settings") as load_settings,
-        patch("slowlog_agent.cli.fetcher.build_client") as build_client,
-        patch("slowlog_agent.cli.shutil.which", return_value="/usr/local/bin/claude"),
-        patch("slowlog_agent.cli._check_db_dsn", return_value=(False, "connection refused")),
+        patch("slowlog_agent.doctor.fetcher.build_client") as build_client,
+        patch("slowlog_agent.doctor.shutil.which", return_value="/usr/local/bin/claude"),
+        patch("slowlog_agent.doctor.db.check_db_dsn", return_value=(False, "connection refused")),
     ):
         load_settings.return_value = _settings(db_dsn="mysql://u:p@localhost/db")
         build_client.return_value = MagicMock()
@@ -292,11 +292,50 @@ def test_analyze_no_findings_prints_no_findings_message(tmp_path: Path) -> None:
     assert "No findings." in result.output
 
 
-def test_check_db_dsn_reports_failure_for_unreachable_host() -> None:
-    ok, message = _check_db_dsn("mysql://baduser:badpass@127.0.0.1:1/nonexistent")
+def test_doctor_unexpected_exception_exits_1_with_remediation() -> None:
+    runner = CliRunner()
+    with (
+        patch("slowlog_agent.cli.load_settings") as load_settings,
+        patch("slowlog_agent.cli.doctor_mod.run_doctor_checks") as run_doctor_checks,
+    ):
+        load_settings.return_value = _settings()
+        run_doctor_checks.side_effect = RuntimeError("kaboom")
 
-    assert ok is False
-    assert message
+        result = runner.invoke(main, ["doctor"])
+
+    assert result.exit_code == 1
+    assert "unexpected failure" in result.output
+    assert "issue" in result.output.lower()
+
+
+# --- init ------------------------------------------------------------------------
+
+
+def test_init_command_delegates_to_wizard_and_uses_its_exit_code() -> None:
+    runner = CliRunner()
+    with patch("slowlog_agent.cli.init_wizard.run_init", return_value=0) as run_init:
+        result = runner.invoke(main, ["init"])
+
+    assert result.exit_code == 0
+    run_init.assert_called_once()
+
+
+def test_init_command_nonzero_exit_when_wizard_reports_failure() -> None:
+    runner = CliRunner()
+    with patch("slowlog_agent.cli.init_wizard.run_init", return_value=1):
+        result = runner.invoke(main, ["init"])
+
+    assert result.exit_code == 1
+
+
+def test_init_unexpected_exception_exits_1_with_remediation() -> None:
+    runner = CliRunner()
+    with patch("slowlog_agent.cli.init_wizard.run_init", side_effect=RuntimeError("kaboom")):
+        result = runner.invoke(main, ["init"])
+
+    assert result.exit_code == 1
+    assert "unexpected failure" in result.output
+    assert "issue" in result.output.lower()
 
 
 # --- version -------------------------------------------------------------------
