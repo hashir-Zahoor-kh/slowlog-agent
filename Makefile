@@ -11,7 +11,8 @@ typecheck:
 	uv run mypy --strict src
 
 test:
-	uv run pytest
+	uv run pytest --cov-report=json --cov-report=term-missing --cov-fail-under=80
+	uv run python scripts/check_coverage_gates.py
 
 analyze:
 	uv run slowlog analyze
@@ -20,6 +21,7 @@ doctor:
 	uv run slowlog doctor
 
 schema:
+	mkdir -p schemas
 	uv run python -m slowlog_agent.schemas > schemas/analysis_report.schema.json
 
 infra-fmt:
